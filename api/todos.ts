@@ -1,9 +1,11 @@
-import { db } from "../src/db";
+import { getDb } from "../src/db";
 import { todos } from "../src/db/schema";
 import { eq } from "drizzle-orm";
 
 export default async function handler(req: any, res: any): Promise<void> {
   try {
+    const db = getDb();
+
     if (req.method === "GET") {
       const all = await db.select().from(todos).orderBy(todos.createdAt);
       res.status(200).json(all);
