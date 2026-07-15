@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Todo List v2</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --card: #181b21;
+    --text: #e8e9ec;
+    --muted: #8a8f98;
+    --accent: #6c8cff;
+    --done: #4b4f58;
+    --border: #23262d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 48px 16px;
+  }
+  .app {
+    width: 100%;
+    max-width: 440px;
+  }
+  h1 {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0 0 24px 0;
+    letter-spacing: -0.01em;
+  }
+  form {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  input[type="text"] {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 14px;
+    outline: none;
+  }
+  input[type="text"]:focus {
+    border-color: var(--accent);
+  }
+  button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 0 18px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  button:hover { opacity: 0.9; }
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 14px;
+  }
+  li .check {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    border: 1.5px solid var(--muted);
+    flex-shrink: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  li.done .check {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  li .check svg { display: none; width: 12px; height: 12px; }
+  li.done .check svg { display: block; }
+  li span.label {
+    flex: 1;
+    word-break: break-word;
+  }
+  li.done span.label {
+    color: var(--done);
+    text-decoration: line-through;
+  }
+  li .del {
+    background: none;
+    color: var(--muted);
+    padding: 4px;
+    font-size: 16px;
+    line-height: 1;
+  }
+  li .del:hover { color: #ff6b6b; }
+  .empty {
+    color: var(--muted);
+    font-size: 14px;
+    text-align: center;
+    padding: 24px 0;
+  }
+  .footer {
+    margin-top: 16px;
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+  <div class="app">
+    <h1>Todo List v2</h1>
+    <form id="form">
+      <input type="text" id="input" placeholder="Aggiungi un task..." autocomplete="off" />
+      <button type="submit">Aggiungi</button>
+    </form>
+    <ul id="list"></ul>
+    <div class="footer" id="footer"></div>
+  </div>
+
+<script>
+  let todos = [];
+
+  const form = document.getElementById('form');
+  const input = document.getElementById('input');
+  const list = document.getElementById('list');
+  const footer = document.getElementById('footer');
+
+  async function loadTodos() {
+    footer.textContent = 'Caricamento...';
+    const res = await fetch('/api/todos');
+    todos = await res.json();
+    render();
+  }
+
+  function render() {
+    list.innerHTML = '';
+    if (todos.length === 0) {
+      list.innerHTML = '<div class="empty">Nessun task. Aggiungine uno!</div>';
+    }
+    todos.forEach(todo => {
+      const li = document.createElement('li');
+      li.className = todo.done ? 'done' : '';
+      li.innerHTML = `
+        <div class="check">
+          <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3">
+            <path d="M5 13l4 4L19 7"/>
+          </svg>
+        </div>
+        <span class="label"></span>
+        <button class="del" title="Elimina">×</button>
+      `;
+      li.querySelector('.label').textContent = todo.text;
+      li.querySelector('.check').addEventListener('click', async () => {
+        await fetch('/api/todos', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: todo.id, done: !todo.done })
+        });
+        todo.done = !todo.done;
+        render();
+      });
+      li.querySelector('.del').addEventListener('click', async () => {
+        await fetch('/api/todos', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: todo.id })
+        });
+        todos = todos.filter(t => t.id !== todo.id);
+        render();
+      });
+      list.appendChild(li);
+    });
+    const remaining = todos.filter(t => !t.done).length;
+    footer.textContent = todos.length ? `${remaining} task rimasti su ${todos.length}` : '';
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    const res = await fetch('/api/todos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
+    const created = await res.json();
+    todos.push(created);
+    render();
+  });
+
+  loadTodos();
+</script>
+</body>
+</html>
