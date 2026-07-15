@@ -1,4 +1,3 @@
 {
-  "buildCommand": "npx drizzle-kit push --force",
-  "outputDirectory": "."
+  "buildCommand": "npx drizzle-kit push --force"
 }
